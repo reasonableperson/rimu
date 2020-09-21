@@ -8,19 +8,20 @@ import * as Quotes from "./quotes.ts";
 import * as Replacements from "./replacements.ts";
 import { BlockAttributes } from "./utils.ts";
 
-export function render(source: string): string {
+export function render(source: string): [any, string] {
   let reader = new Io.Reader(source);
   let writer = new Io.Writer();
+  let metadata = {}
   while (!reader.eof()) {
     reader.skipBlankLines();
     if (reader.eof()) break;
     if (LineBlocks.render(reader, writer)) continue;
     if (Lists.render(reader, writer)) continue;
-    if (DelimitedBlocks.render(reader, writer)) continue;
+    if (DelimitedBlocks.render(reader, writer, metadata)) continue;
     // This code should never be executed (normal paragraphs should match anything).
     Options.panic("no matching delimited block found");
   }
-  return writer.toString();
+  return [metadata, writer.toString()]
 }
 
 // Set API to default state.

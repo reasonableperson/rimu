@@ -22,7 +22,7 @@ export {
 export function render(
   source: string,
   opts: Options.RenderOptions = {},
-): string {
+): [any, string] {
   Options.updateOptions(opts);
   return Api.render(source);
 }

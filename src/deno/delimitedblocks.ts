@@ -4,6 +4,7 @@ import * as Macros from "./macros.ts";
 import * as Options from "./options.ts";
 import * as Utils from "./utils.ts";
 import { BlockAttributes } from "./utils.ts";
+import { parse as parseYaml } from "https://deno.land/std/encoding/yaml.ts";
 
 /* tslint:disable:max-line-length */
 const MATCH_INLINE_TAG =
@@ -57,6 +58,17 @@ const DEFAULT_DEFS: Definition[] = [
     },
     delimiterFilter: delimiterTextFilter,
     contentFilter: macroDefContentFilter,
+  },
+  // YAML block.
+  {
+    name: "yaml",
+    openMatch: /^---$/,
+    closeMatch: /^---$/,
+    openTag: "",
+    closeTag: "",
+    expansionOptions: {
+      metadata: true,
+    },
   },
   // Comment block.
   {
@@ -214,6 +226,7 @@ export function init(): void {
 export function render(
   reader: Io.Reader,
   writer: Io.Writer,
+  metadata: any,
   allowed: string[] = [],
 ): boolean {
   if (reader.eof()) Options.panic("premature eof");
@@ -253,6 +266,7 @@ export function render(
       // Calculate block expansion options.
       let expansionOptions: Utils.ExpansionOptions = {
         macros: false,
+        metadata: false,
         spans: false,
         specials: false,
         container: false,
@@ -260,8 +274,12 @@ export function render(
       };
       Utils.merge(expansionOptions, def.expansionOptions);
       Utils.merge(expansionOptions, BlockAttributes.options);
-      // Translate block.
-      if (!expansionOptions.skip) {
+      // Update the value of the metadata object if this is a YAML block.
+      if (expansionOptions.metadata) {
+        (<any>Object).assign(metadata, parseYaml(lines.join("\n")));
+      }
+      // Otherwise, the block gets rendered to HTML.
+      else if (!expansionOptions.skip) {
         let text = lines.join("\n");
         if (def.contentFilter) {
           text = def.contentFilter(text, match, expansionOptions);
@@ -274,7 +292,7 @@ export function render(
         }
         if (expansionOptions.container) {
           delete BlockAttributes.options.container; // Consume before recursion.
-          text = Api.render(text);
+          [metadata, text] = Api.render(text);
         } else {
           text = Utils.replaceInline(text, expansionOptions);
         }
